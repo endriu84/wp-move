@@ -27,40 +27,40 @@ local_dperm="755"
 
 ## function from https://gist.github.com/masukomi/e587aa6fd4f042496871
 function parse_yaml {
-   local prefix=$2
-   local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
-   sed -ne "s|^\($s\):|\1|" \
-        -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
-        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
-   awk -F$fs '{
-      indent = length($1)/2;
-      vname[indent] = $2;
-      for (i in vname) {if (i > indent) {delete vname[i]}}
-      if (length($3) > 0) {
-         vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
-         printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
-      }
-   }'
+	local prefix=$2
+	local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+	sed -ne "s|^\($s\):|\1|" \
+		-e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
+		-e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
+	awk -F$fs '{
+		indent = length($1)/2;
+		vname[indent] = $2;
+		for (i in vname) {if (i > indent) {delete vname[i]}}
+		if (length($3) > 0) {
+			vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+			printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
+		}
+	}'
 }
 
 function verify_param() {
-   if [ -z "${!1}" ]; then
-      printf "%s value not present in wp-move.yml, exiting." "${1}" >&2;
-      exit 1
-   fi
+	if [ -z "${!1}" ]; then
+		printf "${red_color_start}%s value not present in wp-move.yml, exiting.${red_color_end}" "${1}" >&2;
+		exit 1
+	fi
 }
 
 function remove_lock_file() {
 	if [ -e "${lock_file}" ]; then
 		rm -f "${lock_file}" || { 
-			printf "Cannot remove lock file: %s" "${lock_file}" >&2;
+			printf "${red_color_start}Cannot remove lock file: %s${red_color_end}" "${lock_file}" >&2;
 			exit 1
 		}
 	fi
 }
 
+## use rsync for ssh connection and lftp for ftp
 function download_files() {    
-    # firstly we copy files from remote server rsync for ssh connection, lftp for ftp
     if [ "$production_protocol" = "ssh" ]; then
         if [ -r "$wp_move_ignore" ]; then
             rsync -rlpcP --exclude-from "$wp_move_ignore" -e "ssh -p $production_port" "$production_user"@"$production_host":"$production_path" "$wp_abspath"
@@ -99,7 +99,7 @@ REMOTE_CMD
             ssh "${production_user}@${production_host}" -p "$production_port" "rm ${production_path}/wp-cli.phar"
         elif [ "$production_database_tool" = "mysqldump" ]; then
             # TODO - implement mysqldump
-            printf "production_database_tool: mysqldump not implemented"
+            printf "${red_color_start}production_database_tool: mysqldump not implemented${red_color_end}"
             remove_lock_file
             exit 1
             # najlatwiej byloby uzyc lokalnie mysqldump z opcja laczenia sie przez ssh i baze zapisać od razu lokalnie.. jednak może być to niebezpieczne, bo taka baza musiałaby umożliwiać łaczenie się z innych hostów
@@ -123,7 +123,7 @@ REMOTE_CMD
 function import_db() {
     $WP_CLI db create || true
     $WP_CLI db import "${backup_dir}/${name}-${todays_date}.sql" || {
-        printf "DB import error"
+        printf "${red_color_start}DB import error${red_color_end}"
         remove_lock_file
         exit 1
     }
@@ -162,13 +162,13 @@ EXTRA_PHP
     fi
 }
 
-# plik konfiguracyjny jest wymagany
+# config file is required
 if [ -r "${wp_move_file}" ]; then
-    # TODO is eval insecure?
+    # TODO is eval secure?
     eval "$(parse_yaml wp-move.yml)"
 else
     printf "${red_color_start}No config file, or no permissions\n"
-    printf "Please, provide one in %s\n${red_color_end}" "$wp_move_file"
+    printf "Please, provide one in %s${red_color_end}" "$wp_move_file"
     exit 1;
 fi
 
@@ -205,12 +205,12 @@ fi
 trap remove_lock_file SIGINT SIGTERM
 
 if [ -e "${lock_file}" ]; then
-	printf "File lock found, another instance is running?" >&2;
+	printf "${red_color_start}File lock found, another instance is running?${red_color_end}" >&2;
 	exit 1
 fi
 
 touch "${lock_file}" || {
-    printf "Cannot create lock file - exiting" >&2;
+    printf "${red_color_start}Cannot create lock file - exiting${red_color_end}" >&2;
 	exit 1
 }
 
