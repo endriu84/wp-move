@@ -1,0 +1,67 @@
+# we don't use a real yaml file parser, so not all the yaml file apects works
+# for example, all the comments should be in seperate line, You can't write something like this:
+# 
+# var: value # comment to value
+#
+# also there is no options for a value ex.
+# 
+# var: value
+#   - some-option
+#   - some-option2
+
+# local directory & domain name
+name: example
+
+local:
+  url: http://example.localhost
+  # relative path here ( relative to wp-move.yml file )
+  path: public
+  backup: .backup
+  # owner: www-data
+  # group: www-data
+  # fperm: 644 
+  # dperm: 755
+  database:
+    host: localhost
+    name: example
+    user: dbuser
+    password: ****
+    # port: 3308 # Use just in case you have exotic server config
+    # mysqldump_options: --single-transaction --quick --lock-tables=false
+    # mysql_options: --protocol=TCP # Only available if using SSH
+
+# ftp version
+
+# production:
+#   url: https://example.com
+#   # absolute path for ssh / relative path for ftp
+#   path: /public_html/example.com
+#   protocol: ftp
+#   host: ftp.somehost.com
+#   user: endriu84
+#   password: *****
+#   port: 21
+#   database:
+#     # other option is mysqldump
+#     tool: wpcli
+#     # there is no need of specifing credentials here as scirpt can take those from from wp-config.php
+#     mysqldump_options: --single-transaction --quick --lock-tables=false
+
+## ssh version
+
+production:
+  url: https://example.com
+  # path - absolute path for ssh and relative path for ftp
+  path: /home/user/public_html/example.com
+  protocol: ssh
+  host: somehost.com
+  user: endriu84
+  # password:
+  port: 5739
+  # passphrase:
+  # privateKeyPath: "~/.ssh/id_rsa"
+  database:
+    # other option is mysqldump
+    tool: wpcli
+    # there is no need of specifing credentials here as scirpt can take those from from wp-config.php
+    mysqldump_options: --single-transaction --quick --lock-tables=false
