@@ -2,6 +2,8 @@
 // wp-config-extra
 define('WP_DEBUG', true);
 
+define( 'PS_DEV_ENVIRONMENT', true );
+
 // define('WP_HOME','http://example.localhost');
 // define('WP_SITEURL','http://example.localhost');
 
