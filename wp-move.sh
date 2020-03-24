@@ -13,7 +13,7 @@ set -e
 project_dir=$(pwd)
 move_script_dir=$(dirname "$0")
 wp_move_file="${project_dir}/wp-move.yml"
-wp_move_ignore="${project_dir}/.wpmoveignore"
+wp_move_ignore="${project_dir}/.wp-move-ignore"
 wp_config_extra="${project_dir}/wp-config-extra.php"
 todays_date=$(date +%Y-%m-%d)
 lock_file="/var/lock/wp-move-lock-file"
