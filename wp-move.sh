@@ -156,11 +156,11 @@ function setup_wp_config() {
     if [ -s "${project_dir}/${wp_config_extra}" ]; then
         # we don't need first line ( <?php )
         wp_config_extra=$(tail -n +2 ${project_dir}/${wp_config_extra})
-        "$WP_CLI config create --dbname=$local_database_name --dbuser=$local_database_user --dbpass=$local_database_password --dbhost=$local_database_host --dbprefix=$table_prefix --dbcharset=$DB_CHARSET --dbcollate=$DB_COLLATE --skip-check --force --extra-php" <<EXTRA_PHP
+        $WP_CLI config create --dbname=${local_database_name} --dbuser=${local_database_user} --dbpass=${local_database_password} --dbhost=${local_database_host} --dbprefix=${table_prefix} --dbcharset=${DB_CHARSET} --dbcollate=${DB_COLLATE} --skip-check --force --extra-php <<EXTRA_PHP
     $wp_config_extra
 EXTRA_PHP
     else
-        "$WP_CLI config create --dbname=$local_database_name --dbuser=$local_database_user --dbpass=$local_database_password --dbhost=$local_database_host --dbprefix=$table_prefix --dbcharset=$DB_CHARSET --dbcollate=${DB_COLLATE} --skip-check --force"
+        $WP_CLI config create --dbname=${local_database_name} --dbuser=${local_database_user} --dbpass=${local_database_password} --dbhost=${local_database_host} --dbprefix=${table_prefix} --dbcharset=${DB_CHARSET} --dbcollate=${DB_COLLATE} --skip-check --force
     fi
 }
 
