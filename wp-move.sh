@@ -145,6 +145,8 @@ function setup_wp_config() {
     # making sure we backed up wp-config.php
     if ! [ -s "${backup_dir}/wp-config.php" ]; then
         cp "${wp_abspath}/wp-config.php" "${backup_dir}/wp-config.php"
+        # add to wp_move_ignore
+        echo "wp-config.php" >> "$wp_move_ignore"
     fi
 
     table_prefix=$($WP_CLI config get table_prefix)
