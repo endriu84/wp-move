@@ -112,7 +112,7 @@ REMOTE_CMD
 
     elif [ "$production_protocol" = "ftp" ]; then # wersja bez dostępu do ssh 
 
-        lftp -e "set ssl:verify-certificate/$production_host no; put -O $production_path $move_script_dir/wp-move-src/wp-dump.php; quit" -p "$production_port" --env-password -u "$production_user" "$production_host"
+        lftp -e "set ssl:verify-certificate/$production_host no; put -O $production_path $move_script_dir/.wp-move.sh/wp-dump.php; quit" -p "$production_port" --env-password -u "$production_user" "$production_host"
         wget -O "${backup_dir}/${name}-${todays_date}.sql" "${production_url}/wp-dump.php"
         lftp -e "set ssl:verify-certificate/$production_host no; rm $production_path/wp-dump.php; quit" -p "$production_port" --env-password -u "$production_user" "$production_host"
     fi
@@ -166,20 +166,30 @@ EXTRA_PHP
 
 function init() {
 
-    overwrite='y'
+    overwrite_move_file='y'
     # if there is wp-move.yml file, make sure we want to overwrite it
     if [ -e "${project_dir}/${wp_move_file}" ]; then
-        read -r -p 'You already have wp-move.yml file, are You sure You want to overwrite it? (y/N) ' overwrite
+        read -r -p 'You already have wp-move.yml file, are You sure You want to overwrite it? (y/N) ' overwrite_move_file
     fi
 
-    case "$overwrite" in
+    case "$overwrite_move_file" in
         [Yy]* ) 
-            cp "${move_script_dir}/wp-move-src/templates/wp-move.yml" "${project_dir}/${wp_move_file}"
+            cp "${move_script_dir}/.wp-move.sh/templates/${wp_move_file}" "${project_dir}/${wp_move_file}"
             # read -p "Some question about wp-move.yml config file?" some_var
             sed -i "s/%PROJECT_NAME%/${PWD##*/}/" "${project_dir}/${wp_move_file}"
             nano "${project_dir}/${wp_move_file}"
             printf "%s file initialized\n" "${wp_move_file}"
             chown -R "$local_owner:$local_group" "${project_dir}/${wp_move_file}"
+    esac
+    overwrite_move_ignore='y'
+    # if there is wp-move.yml file, make sure we want to overwrite it
+    if [ -e "${project_dir}/${wp_move_ignore}" ]; then
+        read -r -p 'You already have wp-move.yml file, are You sure You want to overwrite it? (y/N) ' overwrite_move_ignore
+    fi
+
+    case "$overwrite_move_ignore" in
+        [Yy]* ) 
+            cp "${move_script_dir}/.wp-move.sh/templates/${wp_move_ignore}" "${project_dir}/${wp_move_ignore}"
             return ;;
         * ) 
             printf "OK, bye\n"
@@ -195,7 +205,17 @@ function wm_help() {
     printf " --config   generate wp-config.php file\n"
     printf " --db       sync database\n"
     printf " --init     generate wp-move.yml configuration file\n"
+    printf " --php      print remote host php version\n"
     printf " --help     show this help\n\n"
+}
+
+function php_version() {
+
+    version=$(ssh "${production_user}@${production_host}" -p "$production_port" /bin/bash << REMOTE_CMD
+            php -r "echo PHP_VERSION;" | grep --only-matching --perl-regexp "7.\d+"
+REMOTE_CMD
+        )
+    echo "${version}"
 }
 
 # config file is required
@@ -225,6 +245,19 @@ verify_param production_host
 verify_param production_user
 verify_param production_port
 verify_param production_database_tool
+
+# maybe only help, init or php_version
+case "$1" in 
+    --help) 
+        wm_help
+        exit;;
+    --init)
+        init
+        exit;;
+    --php)
+        php_version
+        exit;;
+esac
 
 wp_abspath="${project_dir}/${local_path}"
 backup_dir="${project_dir}/${local_backup}"
@@ -273,9 +306,7 @@ if [ -n "$1" ]; then
         import_db;;
     --config)
         setup_wp_config;;
-    --init)
-        init;;
-    --help)
+    **)
         wm_help;;
     esac
 else
@@ -286,5 +317,4 @@ else
 fi
 
 remove_lock_file
-
 
