@@ -16,14 +16,9 @@ wp_move_file="wp-move.yml"
 wp_move_ignore=".wp-move-ignore"
 wp_config_extra="wp-config-extra.php"
 todays_date=$(date +%Y-%m-%d)
-lock_file="/var/lock/wp-move-lock-file"
+lock_file="wp-move-lock-file"
 red_color_start='\033[1;31m'
 red_color_end='\033[0m\n'
-# defaults
-local_owner="www-data"
-local_group="www-data"
-local_fperm="644"
-local_dperm="755"
 
 ## function from https://gist.github.com/masukomi/e587aa6fd4f042496871
 function parse_yaml {
@@ -51,9 +46,9 @@ function verify_param() {
 }
 
 function remove_lock_file() {
-	if [ -e "${lock_file}" ]; then
-		rm -f "${lock_file}" || { 
-			printf "${red_color_start}Cannot remove lock file: %s${red_color_end}" "${lock_file}" >&2;
+	if [ -e "${project_dir}/${lock_file}" ]; then
+		rm -f "${project_dir}/${lock_file}" || { 
+			printf "${red_color_start}Cannot remove lock file: %s${red_color_end}" "${project_dir}/${lock_file}" >&2;
 			exit 1
 		}
 	fi
@@ -77,10 +72,6 @@ function download_files() {
         fi
         # TODO - verify-certificate no - not secure
     fi
-
-    chown -R "$local_owner:$local_group" "$wp_abspath"
-    find "$wp_abspath" -type d -exec chmod "$local_dperm" {} \;
-    find "$wp_abspath" -type f -exec chmod "$local_fperm" {} \;
 }
 
 function export_db() {
@@ -94,7 +85,7 @@ function export_db() {
                     curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
                 fi
 REMOTE_CMD
-            ssh "${production_user}@${production_host}" -p "$production_port" echo "php ${production_path}/wp-cli.phar db export - --path=${production_path} ${mysqldump_options}" > "${backup_dir}/${name}-${todays_date}.sql"
+            ssh "${production_user}@${production_host}" -p "$production_port" "php ${production_path}/wp-cli.phar db export - --path=${production_path} ${mysqldump_options}" > "${backup_dir}/${name}-${todays_date}.sql"
             # TODO - not sure we want to delete wp-cli.phar every time and download it again? wp-cli.phar living in root dir shouldn't be a problem
             ssh "${production_user}@${production_host}" -p "$production_port" "rm ${production_path}/wp-cli.phar"
         elif [ "$production_database_tool" = "mysqldump" ]; then
@@ -116,8 +107,6 @@ REMOTE_CMD
         wget -O "${backup_dir}/${name}-${todays_date}.sql" "${production_url}/wp-dump.php"
         lftp -e "set ssl:verify-certificate/$production_host no; rm $production_path/wp-dump.php; quit" -p "$production_port" --env-password -u "$production_user" "$production_host"
     fi
-
-    chown -R "$local_owner:$local_group" "$backup_dir"
 }
 
 function import_db() {
@@ -169,7 +158,7 @@ function init() {
     overwrite_move_file='y'
     # if there is wp-move.yml file, make sure we want to overwrite it
     if [ -e "${project_dir}/${wp_move_file}" ]; then
-        read -r -p 'You already have wp-move.yml file, are You sure You want to overwrite it? (y/N) ' overwrite_move_file
+        read -r -p "You already have ${wp_move_file} file, are You sure You want to overwrite it? (y/N) " overwrite_move_file
     fi
 
     case "$overwrite_move_file" in
@@ -177,19 +166,30 @@ function init() {
             cp "${move_script_dir}/.wp-move.sh/templates/${wp_move_file}" "${project_dir}/${wp_move_file}"
             # read -p "Some question about wp-move.yml config file?" some_var
             sed -i "s/%PROJECT_NAME%/${PWD##*/}/" "${project_dir}/${wp_move_file}"
-            nano "${project_dir}/${wp_move_file}"
+            # nano "${project_dir}/${wp_move_file}"
             printf "%s file initialized\n" "${wp_move_file}"
-            chown -R "$local_owner:$local_group" "${project_dir}/${wp_move_file}"
     esac
     overwrite_move_ignore='y'
     # if there is wp-move.yml file, make sure we want to overwrite it
     if [ -e "${project_dir}/${wp_move_ignore}" ]; then
-        read -r -p 'You already have wp-move.yml file, are You sure You want to overwrite it? (y/N) ' overwrite_move_ignore
+        read -r -p "You already have ${wp_move_ignore} file, are You sure You want to overwrite it? (y/N) " overwrite_move_ignore
     fi
 
     case "$overwrite_move_ignore" in
         [Yy]* ) 
             cp "${move_script_dir}/.wp-move.sh/templates/${wp_move_ignore}" "${project_dir}/${wp_move_ignore}"
+            printf "%s file initialized\n" "${wp_move_ignore}"
+    esac
+    overwrite_config_extra='y'
+    # if there is wp-move.yml file, make sure we want to overwrite it
+    if [ -e "${project_dir}/${wp_config_extra}" ]; then
+        read -r -p "You already have ${wp_config_extra} file, are You sure You want to overwrite it? (y/N) " overwrite_config_extra
+    fi
+
+    case "$overwrite_config_extra" in
+        [Yy]* ) 
+            cp "${move_script_dir}/.wp-move.sh/templates/${wp_config_extra}" "${project_dir}/${wp_config_extra}"
+            printf "%s file initialized\n" "${wp_config_extra}"
             return ;;
         * ) 
             printf "OK, bye\n"
@@ -218,6 +218,19 @@ REMOTE_CMD
     echo "${version}"
 }
 
+# maybe only help, init or php_version
+case "$1" in 
+    --help) 
+        wm_help
+        exit;;
+    --init)
+        init
+        exit;;
+    --php)
+        php_version
+        exit;;
+esac
+
 # config file is required
 if [ -r "${project_dir}/${wp_move_file}" ]; then
     # TODO is eval secure?
@@ -231,8 +244,6 @@ fi
 # making sure all necessary variables are set
 verify_param name
 verify_param local_path
-verify_param local_owner
-verify_param local_group
 verify_param local_backup
 verify_param local_database_host
 verify_param local_database_name
@@ -245,19 +256,6 @@ verify_param production_host
 verify_param production_user
 verify_param production_port
 verify_param production_database_tool
-
-# maybe only help, init or php_version
-case "$1" in 
-    --help) 
-        wm_help
-        exit;;
-    --init)
-        init
-        exit;;
-    --php)
-        php_version
-        exit;;
-esac
 
 wp_abspath="${project_dir}/${local_path}"
 backup_dir="${project_dir}/${local_backup}"
@@ -273,12 +271,12 @@ fi
 ## catching Ctrl+C
 trap remove_lock_file SIGINT SIGTERM
 
-if [ -e "${lock_file}" ]; then
+if [ -e "${project_dir}/${lock_file}" ]; then
 	printf "${red_color_start}File lock found, another instance is running?${red_color_end}" >&2;
 	exit 1
 fi
 
-touch "${lock_file}" || {
+touch "${project_dir}/${lock_file}" || {
     printf "${red_color_start}Cannot create lock file - exiting...${red_color_end}"  >&2;
 	exit 1
 }
@@ -293,7 +291,7 @@ if ! [ -x "$(command -v wp)" ]; then
     fi
 fi
 
-WP_CLI="sudo -u ${local_owner} -i -- ${wp_cli_command} --path=${wp_abspath}"
+WP_CLI="${wp_cli_command} --path=${wp_abspath}"
 
 if [ -n "$1" ]; then
 
