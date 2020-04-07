@@ -1,6 +1,6 @@
 # WP Move
 
-Copy remote wordpress installation to a local machine, with some extra features
+Copy remote wordpress installation to a local machine, with some extra features ( #worksforme )
 
 ## How to use
 
