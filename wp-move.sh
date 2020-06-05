@@ -66,9 +66,9 @@ function download_files() {
     elif [ "$production_protocol" = "ftp" ]; then
 
         if [ -r "${project_dir}/${wp_move_ignore}" ]; then
-            lftp -e "set ssl:verify-certificate/$production_host no; mirror --no-perms --exclude-glob-from=${project_dir}/${wp_move_ignore} --verbose --use-pget-n=8 -c $production_path $wp_abspath; quit" -p "$production_port" --env-password -u "$production_user" "$production_host"
+            lftp -e "set ssl:verify-certificate/$production_host no; mirror --only-newer --no-perms --exclude-glob-from=${project_dir}/${wp_move_ignore} --verbose --use-pget-n=8 -c $production_path $wp_abspath; quit" -p "$production_port" --env-password -u "$production_user" "$production_host"
         else
-            lftp -e "set ssl:verify-certificate/$production_host no; mirror --no-perms --verbose --use-pget-n=8 -c $production_path $wp_abspath; quit" -p "$production_port" --env-password -u "$production_user" "$production_host"
+            lftp -e "set ssl:verify-certificate/$production_host no; mirror --only-newer --no-perms --verbose --use-pget-n=8 -c $production_path $wp_abspath; quit" -p "$production_port" --env-password -u "$production_user" "$production_host"
         fi
         # TODO - verify-certificate no - not secure
     fi
@@ -85,7 +85,7 @@ function export_db() {
                     curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
                 fi
 REMOTE_CMD
-            ssh "${production_user}@${production_host}" -p "$production_port" "php ${production_path}/wp-cli.phar db export - --path=${production_path} ${mysqldump_options}" > "${backup_dir}/${name}-${todays_date}.sql"
+            ssh "${production_user}@${production_host}" -p "$production_port" "php ${production_path}/wp-cli.phar db export - --path=${production_path} ${production_database_mysqldump_options}" > "${backup_dir}/${name}-${todays_date}.sql"
             # TODO - not sure we want to delete wp-cli.phar every time and download it again? wp-cli.phar living in root dir shouldn't be a problem
             ssh "${production_user}@${production_host}" -p "$production_port" "rm ${production_path}/wp-cli.phar"
         elif [ "$production_database_tool" = "mysqldump" ]; then
@@ -255,7 +255,9 @@ verify_param production_protocol
 verify_param production_host
 verify_param production_user
 verify_param production_port
-verify_param production_database_tool
+if [ "$production_protocol" = "ssh" ]; then
+    verify_param production_database_tool
+fi
 
 wp_abspath="${project_dir}/${local_path}"
 backup_dir="${project_dir}/${local_backup}"
@@ -304,6 +306,8 @@ if [ -n "$1" ]; then
         import_db;;
     --config)
         setup_wp_config;;
+    --deploy)
+        deploy;;
     **)
         wm_help;;
     esac

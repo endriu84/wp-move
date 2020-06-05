@@ -9,7 +9,7 @@ Copy remote wordpress installation to a local machine, with some extra features 
 git clone https://github.com/endriu84/wp-move.git
 chmod +x wp-move/wp-move.sh
 cp wp-move.sh /usr/local/bin/wp-move
-cp wp-move-src /usr/local/bin/wp-move-src
+cp .wp-move.sh /usr/local/bin/.wp-move.sh
 ```
 #### initialize wp-move.yml config file
 ```
