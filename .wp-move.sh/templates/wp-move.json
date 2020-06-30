@@ -1,0 +1,31 @@
+{
+    "name": "project_name",
+    "local": {
+        "url": "http://project_name.localhost",
+        "path": "public",
+        "backup": ".backup",
+        "wpcli": "wp",
+        "db": {
+            "host": "mariadb",
+            "name": "project_name",
+            "user": "root",
+            "pass": "root"
+        }
+    },
+    "prod": {
+        "protocol": "ssh",
+        "url": "https://project_name.com",
+        "path": "/home/user/public_html/project_name/",
+        "host": "servername",
+        "user": "user",
+        "password": "",
+        "port": 22,
+        "passphrase": "",
+        "privateKeyPath": "~/.ssh/id_rsa",
+        "wpcli": "php ~/wp-cli.phar",
+        "db": {
+            "tool": "wpcli",
+            "options": "--single-transaction --quick --lock-tables=false"
+        }
+    }
+}

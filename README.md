@@ -1,6 +1,6 @@
 # WP Move
 
-Copy remote wordpress installation to a local machine, with some extra features ( #worksforme )
+Copy remote wordpress installation to a local machine, with some extra features
 
 ## How to use
 
@@ -11,13 +11,13 @@ chmod +x wp-move/wp-move.sh
 cp wp-move.sh /usr/local/bin/wp-move
 cp .wp-move.sh /usr/local/bin/.wp-move.sh
 ```
-#### initialize wp-move.yml config file
+#### initialize wp-move.json config file
 ```
 cd project-name
 wp-move --init
 ```
 
-#### edit wp-move.yml
+#### edit wp-move.json
 ```
 nano wp-move.ymal
 ```
