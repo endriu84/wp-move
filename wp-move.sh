@@ -18,15 +18,14 @@ wp_move_ignore=".wp-move-ignore"
 wp_config_extra="wp-config-extra.php"
 todays_date=$(date +%Y-%m-%d)
 lock_file="wp-move-lock-file"
-red_color_start='\033[1;31m'
-red_color_end='\033[0m'
 
 # Functions
 
 parse_config() {
 
     if [ ! -r "${project_dir}/${wp_move_file}" ]; then
-        printf "${red_color_start}No %s file, or no permission ${red_color_end}\n" "{$wp_move_file}"
+        error
+        printf "No %s file, or no permissions" "${project_dir}/${wp_move_file}"
         exit 1;
     fi
 
@@ -48,6 +47,7 @@ parse_config() {
     prod_port=$(jq -r '.prod.port' "${project_dir}/${wp_move_file}")
     # prod_passphrase=$(jq -r '.prod.passphrase' "${project_dir}/${wp_move_file}")
     # prod_privateKeyPath=$(jq -r '.prod.privateKeyPath' "${project_dir}/${wp_move_file}")
+    prod_wpcli=$(jq -r '.prod.wpcli' "${project_dir}/${wp_move_file}")
     prod_db_tool=$(jq -r '.prod.db.tool' "${project_dir}/${wp_move_file}")
     prod_db_options=$(jq -r '.prod.db.options' "${project_dir}/${wp_move_file}")
 
@@ -75,9 +75,14 @@ parse_config() {
 
 verify_param() {
 	if [ -z "${!1}" ]; then
-		printf "${red_color_start}%s value not present in %s, exiting...${red_color_end}\n" "${1}" "${wp_move_file}"
+        error
+		printf "%s value not present in %s, exiting...\n" "${1}" "${wp_move_file}"
 		exit 1
 	fi
+}
+
+error() {
+    printf '\033[1;31m%-6s\033[0m' 'Error: '
 }
 
 create_lock_file() {
@@ -85,12 +90,14 @@ create_lock_file() {
     trap remove_lock_file SIGINT SIGTERM
 
     if [ -e "${project_dir}/${lock_file}" ]; then
-        printf "${red_color_start}File lock found, another instance is running?${red_color_end}"
+        error
+        printf "File lock found, another instance is running?"
         exit 1
     fi
 
     touch "${project_dir}/${lock_file}" || {
-        printf "${red_color_start}Cannot create lock file - exiting...${red_color_end}"
+        error
+        printf "Cannot create lock file - exiting..."
         exit 1
     }
 }
@@ -98,7 +105,8 @@ create_lock_file() {
 remove_lock_file() {
 	if [ -e "${project_dir}/${lock_file}" ]; then
 		rm -f "${project_dir}/${lock_file}" || { 
-			printf "${red_color_start}Cannot remove lock file: %s${red_color_end}" "${project_dir}/${lock_file}"
+            error
+			printf "Cannot remove lock file: %s" "${project_dir}/${lock_file}"
 			exit 1
 		}
 	fi
@@ -113,6 +121,7 @@ help() {
     printf " --db       sync database\n"
     printf " --init     generate wp-move.yml configuration file\n"
     printf " --php      print remote host php version\n"
+    printf " --unlock   delete lock file\n"
     printf " --help     show this help\n\n"
 }
 
@@ -160,7 +169,8 @@ export_db() {
         if [ "$prod_db_tool" = "wpcli" ]; then
 
             if [ -z "$prod_wpcli" ]; then
-                ssh "${prod_user}@${prod_host}" -p "$prod_port" /bin/bash << REMOTE_CMD
+
+                ssh "${prod_user}@${prod_host}" -p "$prod_port" /bin/bash << 'REMOTE_CMD'
                     if ! [ -s ${prod_path}/wp-cli.phar ]; then
                         cd $prod_path
                         curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
@@ -175,7 +185,8 @@ REMOTE_CMD
 
         elif [ "$prod_db_tool" = "mysqldump" ]; then
             # TODO - implement mysqldump
-            printf "${red_color_start}prod_db_tool: mysqldump not implemented${red_color_end}"
+            error
+            printf "prod_db_tool: mysqldump not implemented"
             remove_lock_file
             exit 1
         fi
@@ -193,7 +204,8 @@ import_db() {
 
     ${local_wpcli} db create --quiet || true > /dev/null
     ${local_wpcli} db import "${backup_dir}/${name}-${todays_date}.sql" || {
-        printf "${red_color_start}DB import error${red_color_end}"
+        error
+        printf "DB import failed"
         remove_lock_file
         exit 1
     }
@@ -214,7 +226,7 @@ import_db() {
 setup_wp_config() {
 
     # making sure we backed up wp-config.php
-    if ! [ -s "${backup_dir}/wp-config.php" ]; then
+    if [ ! -s "${backup_dir}/wp-config.php" ]; then
         cp "${wp_abspath}/wp-config.php" "${backup_dir}/wp-config.php"
         # add to wp_move_ignore
         cat "wp-config.php" >> "${project_dir}/${wp_move_ignore}"
@@ -226,13 +238,13 @@ setup_wp_config() {
 
     if [ -s "${project_dir}/${wp_config_extra}" ]; then
         # we don't need first line ( <?php )
-        wp_config_extra=$(tail -n +2 ${project_dir}/${wp_config_extra})
-        ${local_wpcli} config create --dbname=${local_db_name} --dbuser=${local_db_user} --dbpass=${local_db_pass} --dbhost=${local_db_host} --dbprefix=${table_prefix} --dbcharset=${db_charset} --dbcollate=${db_collate} --skip-check --force --extra-php <<EXTRA_PHP
+        wp_config_extra=$(tail -n +2 "${project_dir}/${wp_config_extra}")
+        ${local_wpcli} config create --dbname="${local_db_name}" --dbuser="${local_db_user}" --dbpass="${local_db_pass}" --dbhost="${local_db_host}" --dbprefix="${table_prefix}" --dbcharset="${db_charset}" --dbcollate="${db_collate}" --skip-check --force --extra-php <<EXTRA_PHP
     $wp_config_extra
 
 EXTRA_PHP
     else
-        ${local_wpcli} config create --dbname=${local_db_name} --dbuser=${local_db_user} --dbpass=${local_db_pass} --dbhost=${local_db_host} --dbprefix=${table_prefix} --dbcharset=${db_charset} --dbcollate=${DBdb_collate} --skip-check --force
+        ${local_wpcli} config create --dbname="${local_db_name}" --dbuser="${local_db_user}" --dbpass="${local_db_pass}" --dbhost="${local_db_host}" --dbprefix="${table_prefix}" --dbcharset="${db_charset}" --dbcollate="${db_collate}" --skip-check --force
     fi
 }
 
@@ -310,8 +322,12 @@ if [ -n "$1" ]; then
         parse_config
         php_version
         exit;;
+    --unlock)
+        remove_lock_file
+        exit;;
     **)
-        help;;
+        help
+        exit;;
     esac
 else
     parse_config
