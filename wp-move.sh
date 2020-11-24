@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
+# Source: https://pandasoft.pl
+# Author: Andrzej Misiewicz
+
 # Exit on (non catched) error 
-set -e
+# set -e
 
 # Treat unset variables as an error when substituting
 # set -u
@@ -83,6 +86,12 @@ verify_param() {
 
 error() {
     printf '\033[1;31m%-6s\033[0m' 'Error: '
+    if [ ! -z "${1}" ]; then
+	    printf "${1}\n"
+    fi
+    if [ ! -z "${2}" ]; then
+        exit "${2}"
+    fi
 }
 
 create_lock_file() {
@@ -90,9 +99,7 @@ create_lock_file() {
     trap remove_lock_file SIGINT SIGTERM
 
     if [ -e "${project_dir}/${lock_file}" ]; then
-        error
-        printf "File lock found, another instance is running?"
-        exit 1
+        error "File lock found, another instance is running?" 1
     fi
 
     touch "${project_dir}/${lock_file}" || {
@@ -120,6 +127,7 @@ help() {
     printf " --config   generate wp-config.php file\n"
     printf " --db       sync database\n"
     printf " --init     generate wp-move.yml configuration file\n"
+    printf " --push     push last commit to live server\n"
     printf " --php      print remote host php version\n"
     printf " --unlock   delete lock file\n"
     printf " --help     show this help\n\n"
@@ -160,6 +168,12 @@ download_files() {
         fi
         # FIXME - verify-certificate no - not secure
     fi
+}
+
+push_last_commit() {
+
+    cd "$wp_abspath" && git diff --name-only HEAD HEAD~1 > "${project_dir}/push_last_commit.txt"
+    cd "$wp_abspath" && rsync -rlpcP -e "ssh -p $prod_port" --include-from="${project_dir}/push_last_commit.txt" --exclude="*" "$wp_abspath" "$prod_user"@"$prod_host":"$prod_path" 
 }
 
 export_db() {
@@ -318,6 +332,9 @@ if [ -n "$1" ]; then
     --init)
         init
         exit;;
+    --push)
+        parse_config
+        push_last_commit;;
     --php)
         parse_config
         php_version
