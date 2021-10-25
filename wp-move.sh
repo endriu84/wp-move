@@ -172,8 +172,28 @@ download_files() {
 
 push_last_commit() {
 
-    cd "$wp_abspath" && git diff --name-only HEAD HEAD~1 > "${project_dir}/push_last_commit.txt"
-    cd "$wp_abspath" && rsync -rlpcP -e "ssh -p $prod_port" --include-from="${project_dir}/push_last_commit.txt" --exclude="*" "$wp_abspath" "$prod_user"@"$prod_host":"$prod_path" 
+    # cd "$wp_abspath" && git diff --name-only HEAD HEAD~1 > "${project_dir}/push_last_commit.txt"
+    # cd "$wp_abspath" && rsync -rlpcP -e "ssh -p $prod_port" --include-from="${project_dir}/push_last_commit.txt" --exclude="*" "$wp_abspath" "$prod_user"@"$prod_host":"$prod_path" 
+    cd "$wp_abspath" && rsync -rlpcP -e "ssh -p $prod_port" "$wp_abspath" "$prod_user"@"$prod_host":"$prod_path" 
+
+}
+
+push_db() {
+
+    # ${local_wpcli} plugin list --path=${wp_abspath}
+    ${local_wpcli} db export - --path=${wp_abspath} ${prod_db_options} | ${local_wpcli} @prod db import -
+
+    ${local_wpcli} @prod search-replace "$local_url" "$prod_url" --quiet
+    ${local_wpcli} @prod search-replace "$local_url_no_protocol" "$prod_url_no_protocol" --quiet
+    # ssh "${prod_user}@${prod_host}" -p "$prod_port" "${prod_wpcli} db import -"
+    
+    
+    # > "${backup_dir}/local-${name}-${todays_date}.sql" || {
+    #     error
+    #     printf "DB import failed"
+    #     remove_lock_file
+    #     exit 1
+    # }
 }
 
 export_db() {
@@ -195,7 +215,7 @@ REMOTE_CMD
 
             ssh "${prod_user}@${prod_host}" -p "$prod_port" "${prod_wpcli} db export - --path=${prod_path} ${prod_db_options}" > "${backup_dir}/${name}-${todays_date}.sql"
                 # TODO - not sure we want to delete wp-cli.phar every time and download it again? wp-cli.phar living in root dir shouldn't be a problem
-                # ssh "${prod_user}@${prod_host}" -p "$prod_port" "rm ${prod_path}/wp-cli.phar"
+                # ssh "${prod_user}@${prod_host}" -p "$prod_port" "rm ${prod_path}/wp-cli.phar"    
 
         elif [ "$prod_db_tool" = "mysqldump" ]; then
             # TODO - implement mysqldump
@@ -203,6 +223,12 @@ REMOTE_CMD
             printf "prod_db_tool: mysqldump not implemented"
             remove_lock_file
             exit 1
+        
+        elif [ "$prod_db_tool" = "file" ]; then
+
+            scp -P "${prod_port}" "${move_script_dir}/.wp-move.sh/wp-dump.php" "${prod_user}"@"${prod_host}":"${prod_path}/wp-dump.php"
+            wget -O "${backup_dir}/${name}-${todays_date}.sql" "${prod_url}/wp-dump.php"
+            ssh "${prod_user}@${prod_host}" -p "${prod_port}" "rm ${prod_path}/wp-dump.php"            
         fi
 
     elif [ "$prod_protocol" = "ftp" ]; then # wersja bez dostępu do ssh 
@@ -341,6 +367,10 @@ if [ -n "$1" ]; then
         exit;;
     --unlock)
         remove_lock_file
+        exit;;
+    --push-db)
+        parse_config
+        push_db
         exit;;
     **)
         help

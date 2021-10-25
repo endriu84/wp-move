@@ -45,27 +45,7 @@
 		exit;
 	}
 
-
-
-
-	// Create .ZIP containing all Wordpress files/dirs and the database dump
-	// if( !fn_dir_zip( $s_src, $s_dst . ".zip" ) )
-	// {
-	// 	print $s_error;
-	// 	exit;
-	// }
-
-
-	// Feed browser with file to trigger download
-	// ob_get_clean();
-
-	// header( "Content-Type: application/sql" );
-	// header( "Content-Disposition: attachment; filename=\"" . $s_dst . ".sql\"" );
-	// header( "Content-Length: " . filesize( $s_dst . ".sql" ) );
-	// header( "Pragma: No-cache" );
-	// header( "Expires: 0" );
-    // readfile( $s_dst . ".sql" );
-    
+   
     // header('Content-Encoding: UTF-8');
     header("Content-type: application/sql");
     header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
@@ -83,66 +63,6 @@
 	}
 
 	exit;
-
-
-	// Creates a .ZIP of $s_Src directory containing all files/subdirs except for the .ZIP file itself
-	function fn_dir_zip( $s_src, $s_dst )
-	{
-		global $s_error;
-
-
-		if( !extension_loaded( "zip" ) )
-		{
-			$s_error = "PHP zip extension not avaliable.";
-			return false;
-		}
-
-		if( !file_exists( $s_src ) )
-		{
-			$s_error = "Source file or directory (" . $s_src . ") does not exist.";
-			return false;
-		}
-
-
-		$zip = new ZipArchive();
-
-		if( !$zip->open( $s_dst, ZIPARCHIVE::CREATE | ZIPARCHIVE::OVERWRITE ) )
-		{
-			$s_error = "Could not create .ZIP file.";
-			return false;
-		}
-
-
-		$s_src = realpath( $s_src );
-
-		if( is_dir( $s_src ) )
-		{
-			$a_files = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $s_src, RecursiveDirectoryIterator::SKIP_DOTS ), RecursiveIteratorIterator::SELF_FIRST );
-
-			foreach( $a_files as $s_file )
-			{
-				$s_file = realpath( $s_file );
-
-				if( is_dir( $s_file ) )
-				{
-					$zip->addEmptyDir( str_replace( $s_src . "/", "", $s_file . "/" ) );
-				}
-				else if( is_file( $s_file )  &&  ( strpos( $s_file, $s_dst ) === FALSE ) ) // Skip adding self...
-				{
-					$zip->addFromString( str_replace( $s_src . "/", "", $s_file ), file_get_contents( $s_file ) );
-				}
-			}
-		}
-		else if( is_file( $s_src ) )
-		{
-			$zip->addFromString( basename( $s_src ), file_get_contents( $s_src ) );
-		}
-
-
-		$zip->close();
-
-		return true;
-	}
 
 
 	// Creates a MySQL dumpfile containing full SQL statements to rebuild all tables with data
